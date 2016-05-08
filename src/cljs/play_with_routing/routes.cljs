@@ -14,8 +14,6 @@
                                :params nil
                                :components []}))
 
-(declare DefaultRoute)
-
 ;; helpers
 
 (def decode js/decodeURIComponent)
@@ -35,6 +33,8 @@
       (aget acc (name i)))
     itm
     path))
+
+;; Thank you secretary!
 
 (defn- uri-without-prefix
   [prefix uri]
@@ -130,7 +130,7 @@
                      vals)]
     (if matched
       [route matched nil]
-      (if-let [default-route (first (filter #(identical? (first %) DefaultRoute) all-routes))]
+      (if-let [default-route (first (filter #(= ((comp :path second) %) "*") all-routes))]
         (let [[_ {:keys [path component]}] default-route]
           [route [component] nil])
         [route nil :no-match]))))
@@ -176,12 +176,6 @@
   configuration as a set of components/children of a higher-order component."
   [{:keys [path component] :as props} & children]
   false)
-
-;; DefaultRoute
-
-(defn DefaultRoute
-  [props & children]
-  [Route props children])
 
 ;; RouteComponentTree
 

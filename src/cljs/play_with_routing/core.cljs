@@ -3,7 +3,7 @@
             [re-frame.core :as re-frame]
             [play-with-routing.handlers]
             [play-with-routing.subs]
-            [play-with-routing.routes :as routes :refer [Router Route Link DefaultRoute]]
+            [play-with-routing.routes :as routes :refer [Router Route Link]]
             [play-with-routing.views :as views]
             [play-with-routing.config :as config]))
 
@@ -47,7 +47,7 @@
              :on-update #(js/console.log "router updated")}
      [Route {:path "/" :component root}]
      [Route {:path "/about" :component about-page}]
-     [DefaultRoute {:component error-page}]]
+     [Route {:path "*" :component error-page}]]
     (.getElementById js/document "app")))
 
 (defn ^:export init []
