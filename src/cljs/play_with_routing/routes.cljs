@@ -1,7 +1,7 @@
 (ns play-with-routing.routes
   (:import goog.History)
   (:require [clojure.string :as string]
-            [clojure.walk :refer [keywordize-keys]]
+            [clojure.walk :refer [keywordize-keys postwalk prewalk]]
             [goog.events :as events]
             [goog.history.EventType :as EventType]
             [reagent.core :as r]))
@@ -11,7 +11,7 @@
                                :history history
                                :routes nil
                                :params nil
-                               :components []}))
+                               :component nil}))
 
 ;; helpers
 
@@ -111,28 +111,29 @@
                        {}
                        parts))))
 
-(defn- match-routes
-  "Given a particular `route` perform a depth first search that finds the route
+(defn- -match-routes
+  "Given a particular `route` find the route
   we are interested in. If there is, send back the component tree as a vector of
   components and location. This could be in the form of a redirect also.
   If there is not, send back the index or default route.
   Returns a triplet [components, route, error]"
   [route all-routes]
-  (let [matched (->> (reduce (fn [acc r]
-                               (let [f (comp (juxt :path :component) second)
-                                     [path component] (f r)]
-                                 (if (= path route)
-                                   (assoc acc path component)
-                                   acc)))
-                             {}
-                             all-routes)
-                     vals)]
-    (if matched
+  (let [matched (reduce (fn [acc r]
+                          (let [f (comp (juxt :path :component) second)
+                                [path component] (f r)]
+                            (if (= path route)
+                              (conj acc component)
+                              acc)))
+                        []
+                        all-routes)]
+    (if-not (empty? matched)
       [route matched nil]
       (if-let [default-route (first (filter #(= ((comp :path second) %) "*") all-routes))]
         (let [[_ {:keys [path component]}] default-route]
           [route [component] nil])
         [route nil :no-match]))))
+
+(def match-routes (memoize -match-routes))
 
 ;; Link
 
@@ -176,23 +177,11 @@
   [{:keys [path component] :as props} & children]
   false)
 
-;; RouteComponentTree
-
-(defn- RouteComponentTree
-  "Renders the component tree for a given state passing in proper props which
-  would be session + additional props defined by routing parameters."
-  [init-props]
-  (r/create-class
-    {:reagent-render
-     (fn [{:keys [components routes location params] :as router-state}]
-       (into [:div {:style {:height "inherit" :width "inherit"}}]
-             (mapv #(vector % params) components)))}))
-
 ;; Router
 
 (defn- handle-route-change
   [{:keys [route params on-error on-update] :as props} routes]
-  (let [[location components error] (match-routes route routes)]
+  (let [[location component error] (match-routes route routes)]
     (if error
       (do
         (js/console.info "route change error occurred " error)
@@ -201,7 +190,7 @@
           (on-error error)))
       (do
         (swap! router-state assoc
-               :components components
+               :component component
                :params params)
         (navigate! location params)))))
 
@@ -222,9 +211,9 @@
                              routes)))))
 
 (defn Router
-  "High-order component that emits a `RouterImpl` component. The router strictly
-  handles transition management and updates url history context.
-  This is specfically hash based."
+  "High-order component that generates a component tree based on routes. The router strictly
+  handles transition management and updates url history context. This is specfically hash based.
+  This is also simplified as it does not support nested routing."
   [{:keys [on-error on-update] :as props} & routes]
   (r/create-class
     {:component-will-mount
@@ -235,5 +224,6 @@
          (navigate! (uri-without-prefix "#" hash) {})))
      :reagent-render
      (fn []
-       ;; generate component tree based on the state
-       [RouteComponentTree @router-state])}))
+       (let [{:keys [component params]} @router-state]
+         ;; generate component tree based on the state
+         (into [:div] [component params])))}))

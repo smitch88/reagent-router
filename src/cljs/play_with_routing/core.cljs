@@ -34,10 +34,11 @@
 ;; about
 
 (defn about-page []
-  (fn [props]
+  (fn [props & children]
     [:div "This is the About Page."
      [:div
-      (pr-str props)
+      (when (seq children)
+        (into [:div.about-stuff] children))
       [Link {:display "Go to home page"
              :href "/"}]]]))
 
