@@ -9,7 +9,6 @@
 (defonce history (History.))
 (defonce router-state (r/atom {:prefix "#"
                                :history history
-                               :location nil
                                :routes nil
                                :params nil
                                :components []}))
@@ -202,7 +201,6 @@
           (on-error error)))
       (do
         (swap! router-state assoc
-               :location location
                :components components
                :params params)
         (navigate! location params)))))
